@@ -247,6 +247,7 @@ protected:
   }
   void cbCloud(const sensor_msgs::PointCloud2::ConstPtr& msg)
   {
+    // ROS_INFO("received cloud");
     status_ = mcl_3dl_msgs::Status();
     status_.header.stamp = ros::Time::now();
     status_.status = mcl_3dl_msgs::Status::NORMAL;
@@ -276,8 +277,10 @@ protected:
     sensor_msgs::PointCloud2 pc_bl;
     try
     {
+      // ROS_INFO("accum cloud, %s, %s", msg->header.frame_id.c_str(), params_.frame_ids_["odom"].c_str());
       const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
           params_.frame_ids_["odom"], msg->header.frame_id, msg->header.stamp, ros::Duration(0.1));
+      // ROS_INFO("accum cloud done");
       tf2::doTransform(*msg, pc_bl, trans);
     }
     catch (tf2::TransformException& e)
