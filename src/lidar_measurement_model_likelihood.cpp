@@ -10,8 +10,8 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the copyright holder nor the names of its 
- *       contributors may be used to endorse or promote products derived from 
+ *     * Neither the name of the copyright holder nor the names of its
+ *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -79,6 +79,19 @@ void LidarMeasurementModelLikelihood::loadConfig(
   pnh.param("match_dist_flat", match_dist_flat, 0.05);
   match_dist_min_ = match_dist_min;
   match_dist_flat_ = match_dist_flat;
+
+  string dyn_map_file;
+  pnh.param("dynamic_map", dyn_map_file, "");
+  pnh.param("map_chunk", map_chunk, 100);
+  pnh.param("max_search_radius", max_search_radius, 0.5);
+  pnh.param("map_grid_min", map_grid_min, 0.1);
+  kdtree_.reset(new ChunkedKdtree<PointType>(map_chunk, max_search_radius));
+  kdtree_->setEpsilon(map_grid_min / 16);
+  kdtree_->setPointRepresentation(point_rep);
+  typename ChunkedKdtree<LidarMeasurementModelBase::PointType>::Ptr dyn_map;
+  pcl::io::loadPCDFile(dyn_map_file, *dyn_map);
+  kdtree_d_->setInputCloud(dyn_map_);
+
 }
 void LidarMeasurementModelLikelihood::setGlobalLocalizationStatus(
     const size_t num_particles,
@@ -142,15 +155,29 @@ LidarMeasurementResult LidarMeasurementModelLikelihood::measure(
   size_t num = 0;
   for (auto& p : pc_particle->points)
   {
+    float dist, dist_d;
+    // the distance to the static object
     if (kdtree->radiusSearch(p, match_dist_min_, id, sqdist, 1))
     {
-      const float dist = match_dist_min_ - std::max(std::sqrt(sqdist[0]), match_dist_flat_);
+      dist = match_dist_min_ - std::max(std::sqrt(sqdist[0]), match_dist_flat_);
       if (dist < 0.0)
         continue;
-
-      score_like += dist * match_weight_;
-      num++;
     }
+    // the distance to the semi dynamic object
+    if (kdtree_d_->radiusSearch(p, match_dist_min_, id, sqdist, 1))
+    {
+      dist_d = match_dist_min_ - std::max(std::sqrt(sqdist[0]), match_dist_flat_);
+      if (dist < 0.0)
+      continue;
+    }
+    float coef;
+    if (abs((dist_d - dist) < eps1) && dist_d > eps2) {
+        coef = exp(-(dist_d * dist_d) / sig);
+    } else {
+        coef = 1;
+    }
+    score_like += coef * match_weight_;
+    num++
   }
   const float match_ratio = static_cast<float>(num) / pc_particle->points.size();
 
