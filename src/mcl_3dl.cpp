@@ -960,7 +960,7 @@ protected:
     float dt = (msg->header.stamp - imu_last_).toSec();
     if (dt < 0.0 || dt > 5.0)
     {
-      ROS_WARN("Detected time jump in imu. Resetting.");
+      ROS_WARN("Detected time jump in imu. Resetting. dt = %f", dt);
       has_imu_ = false;
       return;
     }
@@ -1226,7 +1226,7 @@ public:
     if (!params_.fake_imu_)
     {
       int imu_queue_size;
-      pnh_.param("imu_queue_size", imu_queue_size, 200);
+      pnh_.param("imu_queue_size", imu_queue_size, 60);
       sub_imu_ = mcl_3dl_compat::subscribe(
           nh_, "imu/data",
           pnh_, "imu", imu_queue_size, &MCL3dlNode::cbImu, this);

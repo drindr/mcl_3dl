@@ -110,17 +110,17 @@
   </node>
 
   <node
-        pkg="tf"
+        pkg="tf2_ros"
         type="static_transform_publisher"
         name="odom2base_link"
-        args="0 0 0 0 0 0 odom base_link 10"
+        args="0 0 0 0 0 0 odom base_link"
     >
   </node>
   <node
-        pkg="tf"
+        pkg="tf2_ros"
         type="static_transform_publisher"
         name="base_link2sensor"
-        args="0 0 0 0 0 0 base_link tugbot/scan_omni/scan_omni 10"
+        args="0 0 0 0 0 0 base_link tugbot/scan_omni/scan_omni"
     >
   </node>
 </launch>
