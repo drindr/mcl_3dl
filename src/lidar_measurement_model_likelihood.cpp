@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -80,18 +81,30 @@ void LidarMeasurementModelLikelihood::loadConfig(
   match_dist_min_ = match_dist_min;
   match_dist_flat_ = match_dist_flat;
 
-  string dyn_map_file;
-  pnh.param("dynamic_map", dyn_map_file, "");
+  std::string dyn_map_file;
+  int map_chunk;
+  double max_search_radius, map_grid_min;
+  pnh.param("dynamic_map", dyn_map_file);
   pnh.param("map_chunk", map_chunk, 100);
   pnh.param("max_search_radius", max_search_radius, 0.5);
   pnh.param("map_grid_min", map_grid_min, 0.1);
-  kdtree_.reset(new ChunkedKdtree<PointType>(map_chunk, max_search_radius));
-  kdtree_->setEpsilon(map_grid_min / 16);
-  kdtree_->setPointRepresentation(point_rep);
-  typename ChunkedKdtree<LidarMeasurementModelBase::PointType>::Ptr dyn_map;
-  pcl::io::loadPCDFile(dyn_map_file, *dyn_map);
-  kdtree_d_->setInputCloud(dyn_map_);
+  kdtree_dyn_.reset(new ChunkedKdtree<PointType>(map_chunk, max_search_radius));
+  kdtree_dyn_->setEpsilon(map_grid_min / 16);
+  kdtree_dyn_->setPointRepresentation(point_rep_);
+  pcl::PCLPointCloud2 dyn_map2;
+  pcl::io::loadPCDFile(dyn_map_file, dyn_map2);
+  pcl::PointCloud<mcl_3dl::PointXYZIL>::Ptr dyn_map(new pcl::PointCloud<PointType>());
+  pcl::fromPCLPointCloud2(dyn_map2, *dyn_map);
+  kdtree_dyn_->setInputCloud(dyn_map);
 
+  double sigma;
+  pnh.param("sigma", sigma, 0.2);
+  sig_ = 2 * sigma * sigma;
+
+  double eps1, eps2;
+  pnh.param("eps1", eps1, 0.1);
+  pnh.param("eps2", eps2, 0.3);
+  eps1_ = eps1; eps2_ = eps2;
 }
 void LidarMeasurementModelLikelihood::setGlobalLocalizationStatus(
     const size_t num_particles,
@@ -164,20 +177,20 @@ LidarMeasurementResult LidarMeasurementModelLikelihood::measure(
         continue;
     }
     // the distance to the semi dynamic object
-    if (kdtree_d_->radiusSearch(p, match_dist_min_, id, sqdist, 1))
+    if (kdtree_dyn_->radiusSearch(p, match_dist_min_, id, sqdist, 1))
     {
       dist_d = match_dist_min_ - std::max(std::sqrt(sqdist[0]), match_dist_flat_);
       if (dist < 0.0)
       continue;
     }
     float coef;
-    if (abs((dist_d - dist) < eps1) && dist_d > eps2) {
-        coef = exp(-(dist_d * dist_d) / sig);
+    if (abs((dist_d - dist) < eps1_) && dist_d > eps2_) {
+        coef = std::exp(-(dist_d * dist_d) / sig_);
     } else {
         coef = 1;
     }
     score_like += coef * match_weight_;
-    num++
+    num++;
   }
   const float match_ratio = static_cast<float>(num) / pc_particle->points.size();
 

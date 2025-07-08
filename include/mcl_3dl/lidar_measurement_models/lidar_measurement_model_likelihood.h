@@ -60,13 +60,16 @@ private:
   float match_weight_;
   float match_dist_min_;
   float match_dist_flat_;
+  float sig_;
+  float eps1_;
+  float eps2_;
 
-  MyPointRepresentation::Ptr point_rep_;
-  typename ChunkedKdtree<LidarMeasurementModelBase::PointType>::Ptr kdtree_d_;
+  pcl::PointRepresentation<PointType>::Ptr point_rep_;
+  typename ChunkedKdtree<LidarMeasurementModelBase::PointType>::Ptr kdtree_dyn_;
 
 public:
-LidarMeasurementModelLikelihood(MyPointRepresentation::Ptr point_rep)
-    , point_rep_(point_rep) {};
+  using PointType = LidarMeasurementModelBase::PointType;
+  LidarMeasurementModelLikelihood(pcl::PointRepresentation<PointType>::Ptr point_rep): point_rep_(point_rep) {};
   inline float getMaxSearchRange() const
   {
     return match_dist_min_;
