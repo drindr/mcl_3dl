@@ -64,12 +64,10 @@ private:
   float eps1_;
   float eps2_;
 
-  pcl::PointRepresentation<PointType>::Ptr point_rep_;
-  typename ChunkedKdtree<LidarMeasurementModelBase::PointType>::Ptr kdtree_dyn_;
+  std::vector<std::vector<pcl::PointXY>> vertex_;
 
 public:
   using PointType = LidarMeasurementModelBase::PointType;
-  LidarMeasurementModelLikelihood(pcl::PointRepresentation<PointType>::Ptr point_rep): point_rep_(point_rep) {};
   inline float getMaxSearchRange() const
   {
     return match_dist_min_;
@@ -78,6 +76,7 @@ public:
   void loadConfig(
       const ros::NodeHandle& nh,
       const std::string& name);
+  void loadVertex();
   void setGlobalLocalizationStatus(
       const size_t num_particles,
       const size_t current_num_particles);

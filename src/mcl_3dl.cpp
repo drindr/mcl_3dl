@@ -1303,7 +1303,7 @@ public:
 
     lidar_measurements_["likelihood"] =
         LidarMeasurementModelBase::Ptr(
-            new LidarMeasurementModelLikelihood(point_rep_));
+            new LidarMeasurementModelLikelihood());
     lidar_measurements_["beam"] =
         LidarMeasurementModelBase::Ptr(
             new LidarMeasurementModelBeam(

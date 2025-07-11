@@ -47,6 +47,15 @@
 
 namespace mcl_3dl
 {
+float calcDist(pcl::PointXY a, pcl::PointXY b)
+{
+    return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+float calcCross(pcl::PointXY a, pcl::PointXY b)
+{
+    return a.x * b.y - a.y * b.x;
+}
+
 void LidarMeasurementModelLikelihood::loadConfig(
     const ros::NodeHandle& nh,
     const std::string& name)
@@ -81,21 +90,7 @@ void LidarMeasurementModelLikelihood::loadConfig(
   match_dist_min_ = match_dist_min;
   match_dist_flat_ = match_dist_flat;
 
-  std::string dyn_map_file;
-  int map_chunk;
-  double max_search_radius, map_grid_min;
-  pnh.param("dynamic_map", dyn_map_file);
-  pnh.param("map_chunk", map_chunk, 100);
-  pnh.param("max_search_radius", max_search_radius, 0.5);
-  pnh.param("map_grid_min", map_grid_min, 0.1);
-  kdtree_dyn_.reset(new ChunkedKdtree<PointType>(map_chunk, max_search_radius));
-  kdtree_dyn_->setEpsilon(map_grid_min / 16);
-  kdtree_dyn_->setPointRepresentation(point_rep_);
-  pcl::PCLPointCloud2 dyn_map2;
-  pcl::io::loadPCDFile(dyn_map_file, dyn_map2);
-  pcl::PointCloud<mcl_3dl::PointXYZIL>::Ptr dyn_map(new pcl::PointCloud<PointType>());
-  pcl::fromPCLPointCloud2(dyn_map2, *dyn_map);
-  kdtree_dyn_->setInputCloud(dyn_map);
+  // loadVertex();
 
   double sigma;
   pnh.param("sigma", sigma, 0.2);
@@ -105,6 +100,11 @@ void LidarMeasurementModelLikelihood::loadConfig(
   pnh.param("eps1", eps1, 0.1);
   pnh.param("eps2", eps2, 0.3);
   eps1_ = eps1; eps2_ = eps2;
+}
+void loadVertex()
+{
+  // TODO!
+  // Load vertex data from file or other source
 }
 void LidarMeasurementModelLikelihood::setGlobalLocalizationStatus(
     const size_t num_particles,
@@ -177,14 +177,47 @@ LidarMeasurementResult LidarMeasurementModelLikelihood::measure(
         continue;
     }
     // the distance to the semi dynamic object
-    if (kdtree_dyn_->radiusSearch(p, match_dist_min_, id, sqdist, 1))
-    {
-      dist_d = match_dist_min_ - std::max(std::sqrt(sqdist[0]), match_dist_flat_);
-      if (dist < 0.0)
-      continue;
+    float min_dist = eps1_ + 1;
+    for (auto& vs: vertex_) {
+        auto s1 = vs.begin();
+        auto s2 = vs.begin() + 1;
+        bool sign, inside = true;
+        while (s2 != vs.end()) {
+            pcl::PointXY s1_p(p.x - s1->x, p.y - s1->y);
+            pcl::PointXY s1_s2(s1->x - s2->x, s1->y - s2->y);
+            float cross = calcCross(s1_p, s1_s2);
+            if (s1 == vs.begin()) {
+                if (cross > 0)
+                    sign = true;
+                else
+                    sign = false;
+            } else {
+                // sign xor (cross < 0)
+                if (sign != (cross < 0))
+                    inside = false;
+            }
+            float dist = std::abs(cross / calcDist(*s1, *s2));
+            if (dist < min_dist) min_dist = dist;
+            s1++; s2++;
+        }
+        // loop: return to the front
+        s2 = vs.begin();
+        inside = true;
+        pcl::PointXY s1_p(p.x - s1->x, p.y - s1->y);
+        pcl::PointXY s1_s2(s1->x - s2->x, s1->y - s2->y);
+        float cross = calcCross(s1_p, s1_s2);
+        if (sign != (cross < 0))
+            inside = false;
+        if (inside) {
+            min_dist = 0;
+            break;
+        }
+        float dist = std::abs(cross / calcDist(*s1, *s2));
+        if (dist < min_dist) min_dist = dist;
     }
     float coef;
-    if (abs((dist_d - dist) < eps1_) && dist_d > eps2_) {
+    dist_d = min_dist;
+    if (dist_d < eps1_ && dist_d > eps2_) {
         coef = std::exp(-(dist_d * dist_d) / sig_);
     } else {
         coef = 1;
