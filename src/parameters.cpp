@@ -44,11 +44,11 @@ bool Parameters::load(ros::NodeHandle& pnh)
 {
   pnh.param("fake_imu", fake_imu_, false);
   pnh.param("fake_odom", fake_odom_, false);
-  if (fake_imu_ && fake_odom_)
+  /*if (fake_imu_ && fake_odom_)
   {
     ROS_ERROR("One of IMU and Odometry must be enabled");
     return false;
-  }
+    }*/
 
   pnh.param("map_frame", frame_ids_["map"], std::string("map"));
   pnh.param("robot_frame", frame_ids_["base_link"], std::string("base_link"));
